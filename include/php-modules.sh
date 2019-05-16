@@ -13,15 +13,12 @@
 
 #Pre-installation php modules
 php_modules_preinstall_settings(){
-
     if [ "${php}" == "do_not_install" ]; then
         php_modules_install="do_not_install"
     else
         phpConfig=${php_location}/bin/php-config
-
         echo
         echo "${php} available modules:"
-        echo
         # delete some modules & change some module version
         if [ "${php}" == "${php5_6_filename}" ]; then
             php_modules_arr=(${php_modules_arr[@]#${php_libsodium_filename}})
@@ -37,7 +34,6 @@ php_modules_preinstall_settings(){
         display_menu_multi php_modules last
     fi
 }
-
 
 #Pre-installation phpmyadmin
 phpmyadmin_preinstall_settings(){
@@ -79,9 +75,7 @@ install_php_modules(){
     fi
 }
 
-
 install_php_depends(){
-
     if check_sys packageManager apt; then
         apt_depends=(
             autoconf patch m4 bison libbz2-dev libgmp-dev libicu-dev libldb-dev libpam0g-dev
@@ -137,7 +131,7 @@ install_php_depends(){
             curl-devel pcre-devel libtool-libs libtool-ltdl-devel libwebp-devel libXpm-devel
             libvpx-devel libjpeg-devel libpng-devel freetype-devel oniguruma-devel
             aspell-devel enchant-devel readline-devel unixODBC-devel libtidy-devel
-            openldap-devel libxslt-devel net-snmp net-snmp-devel
+            openldap-devel libxslt-devel net-snmp net-snmp-devel krb5-devel
         )
         log "Info" "Starting to install dependencies packages for PHP..."
         for depend in ${yum_depends[@]}
@@ -162,20 +156,19 @@ install_php_depends(){
 
     install_libiconv
     install_re2c
-
     # Fixed unixODBC issue
     if [ -f /usr/include/sqlext.h ] && [ ! -f /usr/local/include/sqlext.h ]; then
         ln -sf /usr/include/sqlext.h /usr/local/include/
     fi
 }
 
-
 install_libiconv(){
     if [ ! -e "/usr/local/bin/iconv" ]; then
         cd ${cur_dir}/software/
         log "Info" "${libiconv_filename} install start..."
-        download_file  "${libiconv_filename}.tar.gz"
+        download_file  "${libiconv_filename}.tar.gz" "${libiconv_filename_url}"
         tar zxf ${libiconv_filename}.tar.gz
+        patch -d ${libiconv_filename} -p0 < ${cur_dir}/conf/libiconv-glibc-2.16.patch
         cd ${libiconv_filename}
 
         error_detect "./configure"
@@ -185,12 +178,11 @@ install_libiconv(){
     fi
 }
 
-
 install_re2c(){
     if [ ! -e "/usr/local/bin/re2c" ]; then
         cd ${cur_dir}/software/
         log "Info" "${re2c_filename} install start..."
-        download_file "${re2c_filename}.tar.gz"
+        download_file "${re2c_filename}.tar.gz" "${re2c_filename_url}"
         tar zxf ${re2c_filename}.tar.gz
         cd ${re2c_filename}
 
@@ -201,28 +193,11 @@ install_re2c(){
     fi
 }
 
-
-install_pcre(){
-    cd ${cur_dir}/software/
-    log "Info" "${pcre_filename} install start..."
-    download_file "${pcre_filename}.tar.gz"
-    tar zxf ${pcre_filename}.tar.gz
-    cd ${pcre_filename}
-
-    error_detect "./configure --prefix=${depends_prefix}/pcre"
-    error_detect "parallel_make"
-    error_detect "make install"
-    add_to_env "${depends_prefix}/pcre"
-    create_lib64_dir "${depends_prefix}/pcre"
-    log "Info" "${pcre_filename} install completed..."
-}
-
-
 install_mhash(){
     if [ ! -e "/usr/local/lib/libmhash.a" ]; then
         cd ${cur_dir}/software/
         log "Info" "${mhash_filename} install start..."
-        download_file "${mhash_filename}.tar.gz"
+        download_file "${mhash_filename}.tar.gz" "${mhash_filename_url}"
         tar zxf ${mhash_filename}.tar.gz
         cd ${mhash_filename}
 
@@ -233,12 +208,11 @@ install_mhash(){
     fi
 }
 
-
 install_mcrypt(){
     if [ ! -e "/usr/local/bin/mcrypt" ]; then
         cd ${cur_dir}/software/
         log "Info" "${mcrypt_filename} install start..."
-        download_file "${mcrypt_filename}.tar.gz"
+        download_file "${mcrypt_filename}.tar.gz" "${mcrypt_filename_url}"
         tar zxf ${mcrypt_filename}.tar.gz
         cd ${mcrypt_filename}
 
@@ -250,12 +224,11 @@ install_mcrypt(){
     fi
 }
 
-
 install_libmcrypt(){
     if [ ! -e "/usr/local/lib/libmcrypt.la" ]; then
         cd ${cur_dir}/software/
         log "Info" "${libmcrypt_filename} install start..."
-        download_file "${libmcrypt_filename}.tar.gz"
+        download_file "${libmcrypt_filename}.tar.gz" "${libmcrypt_filename_url}"
         tar zxf ${libmcrypt_filename}.tar.gz
         cd ${libmcrypt_filename}
 
@@ -266,12 +239,11 @@ install_libmcrypt(){
     fi
 }
 
-
 install_libzip(){
     if [ ! -e "/usr/lib/libzip.la" ]; then
         cd ${cur_dir}/software/
         log "Info" "${libzip_filename} install start..."
-        download_file "${libzip_filename}.tar.gz"
+        download_file "${libzip_filename}.tar.gz" "${libzip_filename_url}"
         tar zxf ${libzip_filename}.tar.gz
         cd ${libzip_filename}
 
@@ -282,52 +254,6 @@ install_libzip(){
     fi
 }
 
-
-install_nghttp2(){
-    cd ${cur_dir}/software/
-    log "Info" "${nghttp2_filename} install start..."
-    download_file "${nghttp2_filename}.tar.gz"
-    tar zxf ${nghttp2_filename}.tar.gz
-    cd ${nghttp2_filename}
-
-    if [ -d ${openssl_location} ]; then
-        export OPENSSL_CFLAGS="-I${openssl_location}/include"
-        export OPENSSL_LIBS="-L${openssl_location}/lib -lssl -lcrypto"
-    fi
-    error_detect "./configure --prefix=/usr --enable-lib-only"
-    error_detect "parallel_make"
-    error_detect "make install"
-    unset OPENSSL_CFLAGS OPENSSL_LIBS
-    log "Info" "${nghttp2_filename} install completed..."
-}
-
-
-install_openssl(){
-    local openssl_version=$(openssl version -v)
-    local major_version=$(echo ${openssl_version} | awk '{print $2}' | grep -oE "[0-9.]+")
-
-    if version_lt ${major_version} 1.1.1; then
-        cd ${cur_dir}/software/
-        log "Info" "${openssl_filename} install start..."
-        download_file "${openssl_filename}.tar.gz"
-        tar zxf ${openssl_filename}.tar.gz
-        cd ${openssl_filename}
-
-        error_detect "./config --prefix=${openssl_location} -fPIC shared zlib"
-        error_detect "make"
-        error_detect "make install"
-
-        if ! grep -qE "^${openssl_location}/lib" /etc/ld.so.conf.d/*.conf; then
-            echo "${openssl_location}/lib" > /etc/ld.so.conf.d/openssl.conf
-        fi
-        ldconfig
-        log "Info" "${openssl_filename} install completed..."
-    else
-        log "Info" "OpenSSL version is greater than or equal to 1.1.1, installation skipped."
-    fi
-}
-
-
 install_phpmyadmin(){
     if [ -d "${web_root_dir}/phpmyadmin" ]; then
         rm -rf ${web_root_dir}/phpmyadmin
@@ -335,16 +261,15 @@ install_phpmyadmin(){
 
     cd ${cur_dir}/software
 
-    log "Info" "${phpmyadmin} install start..."
-    download_file "${phpmyadmin}.tar.gz"
-    tar zxf ${phpmyadmin}.tar.gz
-    mv ${phpmyadmin} ${web_root_dir}/phpmyadmin
+    log "Info" "${phpmyadmin_filename} install start..."
+    download_file "${phpmyadmin_filename}.tar.gz" "${phpmyadmin_filename_url}"
+    tar zxf ${phpmyadmin_filename}.tar.gz
+    mv ${phpmyadmin_filename} ${web_root_dir}/phpmyadmin
     cp -f ${cur_dir}/conf/config.inc.php ${web_root_dir}/phpmyadmin/config.inc.php
     mkdir -p ${web_root_dir}/phpmyadmin/{upload,save}
     chown -R apache:apache ${web_root_dir}/phpmyadmin
-    log "Info" "${phpmyadmin} install completed..."
+    log "Info" "${phpmyadmin_filename} install completed..."
 }
-
 
 install_kodexplorer(){
     if [ -d "${web_root_dir}/kod" ]; then
@@ -353,17 +278,13 @@ install_kodexplorer(){
 
     cd ${cur_dir}/software
 
-    log "Info" "${kodexplorer} install start..."
-    kod_version=$(echo ${kodexplorer} | grep -oE '[0-9]+\.[0-9]+')
-    kod_url1="https://github.com/kalcaddle/kodfile/archive/${kod_version}.tar.gz"
-    kod_url2="${download_root_url}/${kodexplorer}.tar.gz"
-    download_from_url "${kodexplorer}.tar.gz" "${kod_url1}" "${kod_url2}"
-    tar zxf ${kodexplorer}.tar.gz
-    mv ${kodexplorer} ${web_root_dir}/kod
+    log "Info" "${kodexplorer_filename} install start..."
+    download_file "${kodexplorer_filename}.tar.gz" "${kodexplorer_filename_url}"
+    tar zxf ${kodexplorer_filename}.tar.gz
+    mv ${kodexplorer_filename} ${web_root_dir}/kod
     chown -R apache:apache ${web_root_dir}/kod
-    log "Info" "${kodexplorer} install completed..."
+    log "Info" "${kodexplorer_filename} install completed..."
 }
-
 
 install_ionCube(){
     local phpConfig=${1}
@@ -374,11 +295,11 @@ install_ionCube(){
 
     log "Info" "PHP extension ionCube Loader install start..."
     if is_64bit; then
-        download_file "${ionCube64_filename}.tar.gz"
+        download_file "${ionCube64_filename}.tar.gz" "${ionCube64_filename_url}"
         tar zxf ${ionCube64_filename}.tar.gz
         cp -pf ioncube/ioncube_loader_lin_${php_version}_ts.so ${php_extension_dir}/
     else
-        download_file "${ionCube32_filename}.tar.gz"
+        download_file "${ionCube32_filename}.tar.gz" "${ionCube32_filename_url}"
         tar zxf ${ionCube32_filename}.tar.gz
         cp -pf ioncube/ioncube_loader_lin_${php_version}_ts.so ${php_extension_dir}/
     fi
@@ -393,7 +314,6 @@ EOF
     log "Info" "PHP extension ionCube Loader install completed..."
 }
 
-
 install_xcache(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -401,7 +321,7 @@ install_xcache(){
 
     log "Info" "PHP extension XCache install start..."
     cd ${cur_dir}/software/
-    download_file "${xcache_filename}.tar.gz"
+    download_file "${xcache_filename}.tar.gz" "${xcache_filename_url}"
     tar zxf ${xcache_filename}.tar.gz
     cd ${xcache_filename}
     error_detect "${php_location}/bin/phpize"
@@ -460,7 +380,6 @@ EOF
     log "Info" "PHP extension XCache install completed..."
 }
 
-
 install_php_libsodium(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -469,7 +388,7 @@ install_php_libsodium(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension libsodium install start..."
-    download_file "${libsodium_filename}.tar.gz"
+    download_file "${libsodium_filename}.tar.gz" "${libsodium_filename_url}"
     tar zxf ${libsodium_filename}.tar.gz
     cd ${libsodium_filename}
     error_detect "./configure --prefix=/usr"
@@ -478,7 +397,7 @@ install_php_libsodium(){
 
     cd ${cur_dir}/software/
 
-    download_file "${php_libsodium_filename}.tar.gz"
+    download_file "${php_libsodium_filename}.tar.gz" "${php_libsodium_filename_url}"
     tar zxf ${php_libsodium_filename}.tar.gz
     cd ${php_libsodium_filename}
     error_detect "${php_location}/bin/phpize"
@@ -496,7 +415,6 @@ EOF
     log "Info" "PHP extension libsodium install completed..."
 }
 
-
 install_php_imagesmagick(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -505,7 +423,7 @@ install_php_imagesmagick(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension imagemagick install start..."
-    download_file "${ImageMagick_filename}.tar.gz"
+    download_file "${ImageMagick_filename}.tar.gz" "${ImageMagick_filename_url}"
     tar zxf ${ImageMagick_filename}.tar.gz
     cd ${ImageMagick_filename}
     error_detect "./configure"
@@ -514,7 +432,7 @@ install_php_imagesmagick(){
 
     cd ${cur_dir}/software/
 
-    download_file "${php_imagemagick_filename}.tgz"
+    download_file "${php_imagemagick_filename}.tgz" "${php_imagemagick_filename_url}"
     tar zxf ${php_imagemagick_filename}.tgz
     cd ${php_imagemagick_filename}
     error_detect "${php_location}/bin/phpize"
@@ -532,7 +450,6 @@ EOF
     log "Info" "PHP extension imagemagick install completed..."
 }
 
-
 install_php_graphicsmagick(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -541,7 +458,7 @@ install_php_graphicsmagick(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension graphicsmagick install start..."
-    download_file "${GraphicsMagick_filename}.tar.gz"
+    download_file "${GraphicsMagick_filename}.tar.gz" "${GraphicsMagick_filename_url}"
     tar zxf ${GraphicsMagick_filename}.tar.gz
     cd ${GraphicsMagick_filename}
     error_detect "./configure --enable-shared"
@@ -551,11 +468,11 @@ install_php_graphicsmagick(){
     cd ${cur_dir}/software/
 
     if [ "$php" == "${php5_6_filename}" ]; then
-        download_file "${php_graphicsmagick_filename}.tgz"
+        download_file "${php_graphicsmagick_filename}.tgz" "${php_graphicsmagick_filename_url}"
         tar zxf ${php_graphicsmagick_filename}.tgz
         cd ${php_graphicsmagick_filename}
     else
-        download_file "${php_graphicsmagick_filename2}.tgz"
+        download_file "${php_graphicsmagick_filename2}.tgz" "${php_graphicsmagick_filename2_url}"
         tar zxf ${php_graphicsmagick_filename2}.tgz
         cd ${php_graphicsmagick_filename2}
     fi
@@ -575,7 +492,6 @@ EOF
     log "Info" "PHP extension graphicsmagick install completed..."
 }
 
-
 install_php_memcached(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -584,7 +500,7 @@ install_php_memcached(){
     cd ${cur_dir}/software
 
     log "Info" "libevent install start..."
-    download_file "${libevent_filename}.tar.gz"
+    download_file "${libevent_filename}.tar.gz" "${libevent_filename_url}"
     tar zxf ${libevent_filename}.tar.gz
     cd ${libevent_filename}
     error_detect "./configure"
@@ -598,7 +514,7 @@ install_php_memcached(){
     log "Info" "memcached install start..."
     id -u memcached >/dev/null 2>&1
     [ $? -ne 0 ] && groupadd memcached && useradd -M -s /sbin/nologin -g memcached memcached
-    download_file "${memcached_filename}.tar.gz"
+    download_file "${memcached_filename}.tar.gz" "${memcached_filename_url}"
     tar zxf ${memcached_filename}.tar.gz
     cd ${memcached_filename}
     error_detect "./configure --prefix=${depends_prefix}/memcached"
@@ -609,9 +525,9 @@ install_php_memcached(){
     rm -f /usr/bin/memcached
     ln -s ${depends_prefix}/memcached/bin/memcached /usr/bin/memcached
     if check_sys packageManager apt;then
-        cp -f ${cur_dir}/conf/memcached-init-debian /etc/init.d/memcached
+        cp -f ${cur_dir}/init.d/memcached-init-debian /etc/init.d/memcached
     elif check_sys packageManager yum;then
-        cp -f ${cur_dir}/conf/memcached-init-centos /etc/init.d/memcached
+        cp -f ${cur_dir}/init.d/memcached-init-centos /etc/init.d/memcached
     fi
     chmod +x /etc/init.d/memcached
     boot_start memcached
@@ -625,7 +541,7 @@ install_php_memcached(){
     elif check_sys packageManager yum;then
         yum -y install cyrus-sasl-plain cyrus-sasl cyrus-sasl-devel cyrus-sasl-lib
     fi
-    download_file "${libmemcached_filename}.tar.gz"
+    download_file "${libmemcached_filename}.tar.gz" "${libmemcached_filename_url}"
     tar zxf ${libmemcached_filename}.tar.gz
     patch -d ${libmemcached_filename} -p0 < ${cur_dir}/conf/libmemcached-build.patch
     cd ${libmemcached_filename}
@@ -638,11 +554,11 @@ install_php_memcached(){
     
     log "Info" "PHP extension memcached extension install start..."
     if [ "$php" == "${php5_6_filename}" ]; then
-        download_file "${php_memcached_filename}.tgz"
+        download_file "${php_memcached_filename}.tgz" "${php_memcached_filename_url}"
         tar zxf ${php_memcached_filename}.tgz
         cd ${php_memcached_filename}
     else
-        download_file "${php_memcached_filename2}.tgz"
+        download_file "${php_memcached_filename2}.tgz" "${php_memcached_filename2_url}"
         tar zxf ${php_memcached_filename2}.tgz
         cd ${php_memcached_filename2}
     fi
@@ -662,7 +578,6 @@ EOF
     log "Info" "PHP extension memcached install completed..."
 }
 
-
 install_php_redis(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -676,7 +591,7 @@ install_php_redis(){
     cd ${cur_dir}/software/
 
     log "Info" "redis-server install start..."
-    download_file "${redis_filename}.tar.gz"
+    download_file "${redis_filename}.tar.gz" "${redis_filename_url}"
     tar zxf ${redis_filename}.tar.gz
     cd ${redis_filename}
     ! is_64bit && sed -i '1i\CFLAGS= -march=i686' src/Makefile && sed -i 's@^OPT=.*@OPT=-O2 -march=i686@' src/.make-settings
@@ -692,15 +607,15 @@ install_php_redis(){
         sed -i "s@^dir.*@dir ${redis_install_dir}/var@" ${redis_install_dir}/etc/redis.conf
         sed -i 's@daemonize no@daemonize yes@' ${redis_install_dir}/etc/redis.conf
         sed -i "s@^# bind 127.0.0.1@bind 127.0.0.1@" ${redis_install_dir}/etc/redis.conf
-        [ -z "`grep ^maxmemory ${redis_install_dir}/etc/redis.conf`" ] && sed -i "s@maxmemory <bytes>@maxmemory <bytes>\nmaxmemory `expr ${Mem} / 8`000000@" ${redis_install_dir}/etc/redis.conf
+        [ -z "$(grep ^maxmemory ${redis_install_dir}/etc/redis.conf)" ] && sed -i "s@maxmemory <bytes>@maxmemory <bytes>\nmaxmemory $(expr ${Mem} / 8)000000@" ${redis_install_dir}/etc/redis.conf
 
         if check_sys packageManager apt; then
-            cp -f ${cur_dir}/conf/redis-server-init-debian /etc/init.d/redis-server
+            cp -f ${cur_dir}/init.d/redis-server-init-debian /etc/init.d/redis-server
         elif check_sys packageManager yum; then
             if echo $(get_opsy) | grep -Eqi "fedora"; then
-                cp -f ${cur_dir}/conf/redis-server-init-fedora /etc/init.d/redis-server
+                cp -f ${cur_dir}/init.d/redis-server-init-fedora /etc/init.d/redis-server
             else
-                cp -f ${cur_dir}/conf/redis-server-init-centos /etc/init.d/redis-server
+                cp -f ${cur_dir}/init.d/redis-server-init-centos /etc/init.d/redis-server
             fi
         fi
 
@@ -719,11 +634,11 @@ install_php_redis(){
         cd ${cur_dir}/software/
         log "Info" "PHP extension redis install start..."
         if [ "$php" == "${php5_6_filename}" ]; then
-            download_file  "${php_redis_filename}.tgz"
+            download_file  "${php_redis_filename}.tgz" "${php_redis_filename_url}"
             tar zxf ${php_redis_filename}.tgz
             cd ${php_redis_filename}
         else
-            download_file  "${php_redis_filename2}.tgz"
+            download_file  "${php_redis_filename2}.tgz" "${php_redis_filename2_url}"
             tar zxf ${php_redis_filename2}.tgz
             cd ${php_redis_filename2}
         fi
@@ -744,7 +659,6 @@ EOF
     fi
 }
 
-
 install_php_mongo(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -753,7 +667,7 @@ install_php_mongo(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension mongodb install start..."
-    download_file "${php_mongo_filename}.tgz"
+    download_file "${php_mongo_filename}.tgz" "${php_mongo_filename_url}"
     tar zxf ${php_mongo_filename}.tgz
     cd ${php_mongo_filename}
     error_detect "${php_location}/bin/phpize"
@@ -771,7 +685,6 @@ EOF
     log "Info" "PHP extension mongodb install completed..."
 }
 
-
 install_swoole(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -780,7 +693,7 @@ install_swoole(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension swoole install start..."
-    download_file "${swoole_filename}.tar.gz"
+    download_file "${swoole_filename}.tar.gz" "${swoole_filename_url}"
     tar zxf ${swoole_filename}.tar.gz
     cd ${swoole_filename}
     error_detect "${php_location}/bin/phpize"
@@ -798,7 +711,6 @@ EOF
     log "Info" "PHP extension swoole install completed..."
 }
 
-
 install_xdebug(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -808,11 +720,11 @@ install_xdebug(){
 
     log "Info" "PHP extension xdebug install start..."
     if [ "$php" == "${php5_6_filename}" ]; then
-        download_file "${xdebug_filename}.tgz"
+        download_file "${xdebug_filename}.tgz" "${xdebug_filename_url}"
         tar zxf ${xdebug_filename}.tgz
         cd ${xdebug_filename}
     else
-        download_file "${xdebug_filename2}.tgz"
+        download_file "${xdebug_filename2}.tgz" "${xdebug_filename2_url}"
         tar zxf ${xdebug_filename2}.tgz
         cd ${xdebug_filename2}
     fi
@@ -831,7 +743,6 @@ EOF
     log "Info" "PHP extension xdebug install completed..."
 }
 
-
 install_yaf(){
     local phpConfig=${1}
     local php_version=$(get_php_version "${phpConfig}")
@@ -840,7 +751,7 @@ install_yaf(){
     cd ${cur_dir}/software/
 
     log "Info" "PHP extension yaf install start..."
-    download_file "${yaf_filename}.tgz"
+    download_file "${yaf_filename}.tgz" "${yaf_filename_url}"
     tar zxf ${yaf_filename}.tgz
     cd ${yaf_filename}
     error_detect "${php_location}/bin/phpize"

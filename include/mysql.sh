@@ -25,7 +25,7 @@ mysql_preinstall_settings(){
             echo
             read -p "mysql data location(default:${mysql_location}/data, leave blank for default): " mysql_data_location
             mysql_data_location=${mysql_data_location:=${mysql_location}/data}
-            mysql_data_location=`filter_location "${mysql_data_location}"`
+            mysql_data_location=$(filter_location "${mysql_data_location}")
             echo
             echo "mysql data location: ${mysql_data_location}"
 
@@ -41,7 +41,7 @@ mysql_preinstall_settings(){
             echo
             read -p "mariadb data location(default:${mariadb_location}/data, leave blank for default): " mariadb_data_location
             mariadb_data_location=${mariadb_data_location:=${mariadb_location}/data}
-            mariadb_data_location=`filter_location "${mariadb_data_location}"`
+            mariadb_data_location=$(filter_location "${mariadb_data_location}")
             echo
             echo "mariadb data location: ${mariadb_data_location}"
 
@@ -61,7 +61,7 @@ mysql_preinstall_settings(){
             echo
             read -p "percona data location(default:${percona_location}/data, leave blank for default): " percona_data_location
             percona_data_location=${percona_data_location:=${percona_location}/data}
-            percona_data_location=`filter_location "${percona_data_location}"`
+            percona_data_location=$(filter_location "${percona_data_location}")
             echo
             echo "percona data location: $percona_data_location"
 
@@ -80,7 +80,7 @@ mysql_preinstall_settings(){
 common_install(){
 
     local apt_list=(libncurses5-dev cmake m4 bison libaio1 libaio-dev numactl)
-    local yum_list=(ncurses-devel cmake m4 bison libaio libaio-devel numactl-devel)
+    local yum_list=(ncurses-devel cmake m4 bison libaio libaio-devel numactl-devel libevent)
     if is_64bit; then
         local perl_data_dumper_url="${download_root_url}/perl-Data-Dumper-2.125-1.el6.rf.x86_64.rpm"
     else
@@ -237,7 +237,7 @@ common_setup(){
     rm -f /usr/bin/mysql /usr/bin/mysqldump /usr/bin/mysqladmin
     rm -f /etc/ld.so.conf.d/mysql.conf
 
-    if [ -d ${mysql_location} ]; then
+    if [ -d "${mysql_location}" ]; then
 
         local db_name="MySQL"
         local db_pass="${mysql_root_pass}"
@@ -251,7 +251,7 @@ common_setup(){
         echo "${mysql_location}/lib" >> /etc/ld.so.conf.d/mysql.conf
         echo "${mysql_location}/lib64" >> /etc/ld.so.conf.d/mysql.conf
 
-    elif [ -d ${mariadb_location} ]; then
+    elif [ -d "${mariadb_location}" ]; then
 
         local db_name="MariaDB"
         local db_pass="${mariadb_root_pass}"
@@ -265,7 +265,7 @@ common_setup(){
         echo "${mariadb_location}/lib" >> /etc/ld.so.conf.d/mysql.conf
         echo "${mariadb_location}/lib64" >> /etc/ld.so.conf.d/mysql.conf
 
-    elif [ -d ${percona_location} ]; then
+    elif [ -d "${percona_location}" ]; then
 
         local db_name="Percona Server"
         local db_pass="${percona_root_pass}"
@@ -318,22 +318,20 @@ install_mysqld(){
     mysql_ver=$(echo ${mysql} | sed 's/[^0-9.]//g' | cut -d. -f1-2)
     cd ${cur_dir}/software/
     log "Info" "Downloading and Extracting MySQL files..."
+
+    mysql_filename="${mysql}-linux-glibc2.12-${sys_bit}"
     if [ "${mysql_ver}" == "8.0" ]; then
-        url1="https://cdn.mysql.com/Downloads/MySQL-${mysql_ver}/${mysql}-linux-glibc2.12-${sys_bit}.tar.xz"
-        url2="${download_root_url}/${mysql}-linux-glibc2.12-${sys_bit}.tar.xz"
-        mysql_file="${mysql}-linux-glibc2.12-${sys_bit}.tar.xz"
-        download_from_url "${mysql_file}" "${url1}" "${url2}"
-        tar Jxf ${mysql_file}
+        mysql_filename_url="https://cdn.mysql.com/Downloads/MySQL-${mysql_ver}/${mysql_filename}.tar.xz"
+        download_file "${mysql_filename}.tar.xz" "${mysql_filename_url}"
+        tar Jxf ${mysql_filename}.tar.xz
     else
-        url1="https://cdn.mysql.com/Downloads/MySQL-${mysql_ver}/${mysql}-linux-glibc2.12-${sys_bit}.tar.gz"
-        url2="${download_root_url}/${mysql}-linux-glibc2.12-${sys_bit}.tar.gz"
-        mysql_file="${mysql}-linux-glibc2.12-${sys_bit}.tar.gz"
-        download_from_url "${mysql_file}" "${url1}" "${url2}"
-        tar zxf ${mysql_file}
+        mysql_filename_url="https://cdn.mysql.com/Downloads/MySQL-${mysql_ver}/${mysql_filename}.tar.gz"
+        download_file "${mysql_filename}.tar.gz" "${mysql_filename_url}"
+        tar zxf ${mysql_filename}.tar.gz
     fi
 
     log "Info" "Moving MySQL files..."
-    mv ${mysql}-linux-glibc2.12-${sys_bit}/* ${mysql_location}
+    mv ${mysql_filename}/* ${mysql_location}
 
     config_mysql ${mysql_ver}
 
@@ -372,15 +370,7 @@ install_mariadb(){
 
     common_install
 
-    if [ "$(get_ip_country)" == "CN" ]; then
-        local down_addr1=http://mirrors.aliyun.com/mariadb/
-        local down_addr2=http://sfo1.mirrors.digitalocean.com/mariadb/
-    else
-        local down_addr1=http://sfo1.mirrors.digitalocean.com/mariadb/
-        local down_addr2=http://mirrors.aliyun.com/mariadb/
-    fi
-
-    if version_lt ${libc_version} 2.14; then
+    if version_lt $(get_libc_version) 2.14; then
         glibc_flag=linux
     else
         glibc_flag=linux-glibc_214
@@ -389,16 +379,20 @@ install_mariadb(){
     is_64bit && sys_bit_a=x86_64 || sys_bit_a=x86
     is_64bit && sys_bit_b=x86_64 || sys_bit_b=i686
 
-    cd ${cur_dir}/software/
+    mariadb_filename="${mysql}-${glibc_flag}-${sys_bit_b}"
+    if [ "$(get_ip_country)" == "CN" ]; then
+        mariadb_filename_url="http://mirrors.aliyun.com/mariadb/${mysql}/bintar-${glibc_flag}-${sys_bit_a}/${mariadb_filename}.tar.gz"
+    else
+        mariadb_filename_url="http://sfo1.mirrors.digitalocean.com/mariadb/${mysql}/bintar-${glibc_flag}-${sys_bit_a}/${mariadb_filename}.tar.gz"
+    fi
 
-    download_from_url "${mysql}-${glibc_flag}-${sys_bit_b}.tar.gz" \
-    "${down_addr1}/${mysql}/bintar-${glibc_flag}-${sys_bit_a}/${mysql}-${glibc_flag}-${sys_bit_b}.tar.gz" \
-    "${down_addr2}/${mysql}/bintar-${glibc_flag}-${sys_bit_a}/${mysql}-${glibc_flag}-${sys_bit_b}.tar.gz"
+    cd ${cur_dir}/software/
+    download_file "${mariadb_filename}.tar.gz" "${mariadb_filename_url}"
 
     log "Info" "Extracting MariaDB files..."
-    tar zxf ${mysql}-${glibc_flag}-${sys_bit_b}.tar.gz
+    tar zxf ${mariadb_filename}.tar.gz
     log "Info" "Moving MariaDB files..."
-    mv ${mysql}-*-${sys_bit_b}/* ${mariadb_location}
+    mv ${mariadb_filename}/* ${mariadb_location}
 
     config_mariadb
 
@@ -449,22 +443,19 @@ install_percona(){
     local down_addr="https://www.percona.com/downloads/Percona-Server-${percona_ver}/${mysql}/binary/tarball"
 
     if [[ "${percona_ver}" == "5.5" || "${percona_ver}" == "5.6" ]]; then
-        tarball="${major_ver}-rel${rel_ver}-Linux.${sys_bit}.${ssl_ver}"
+        percona_filename="${major_ver}-rel${rel_ver}-Linux.${sys_bit}.${ssl_ver}"
     fi
     if [[ "${percona_ver}" == "5.7" || "${percona_ver}" == "8.0" ]]; then
-        tarball="${mysql}-Linux.${sys_bit}.${ssl_ver}"
+        percona_filename="${mysql}-Linux.${sys_bit}.${ssl_ver}"
     fi
-
-    local url1="${down_addr}/${tarball}.tar.gz"
-    local url2="${download_root_url}/${tarball}.tar.gz"
+    percona_filename_url="${down_addr}/${percona_filename}.tar.gz"
 
     cd ${cur_dir}/software/
-
-    download_from_url "${tarball}.tar.gz" "${url1}" "${url2}"
+    download_file "${percona_filename}.tar.gz" "${percona_filename_url}"
     log "Info" "Extracting Percona Server files..."
-    tar zxf ${tarball}.tar.gz
+    tar zxf ${percona_filename}.tar.gz
     log "Info" "Moving Percona Server files..."
-    mv ${tarball}/* ${percona_location}
+    mv ${percona_filename}/* ${percona_location}
 
     config_percona ${percona_ver}
 
@@ -489,8 +480,8 @@ config_percona(){
         echo "default_authentication_plugin  = mysql_native_password" >> /etc/my.cnf
     fi
 
-    sed -ir "s@/usr/local/${tarball}@${percona_location}@g" ${percona_location}/bin/mysqld_safe
-    sed -ir "s@/usr/local/${tarball}@${percona_location}@g" ${percona_location}/bin/mysql_config
+    sed -ir "s@/usr/local/${percona_filename}@${percona_location}@g" ${percona_location}/bin/mysqld_safe
+    sed -ir "s@/usr/local/${percona_filename}@${percona_location}@g" ${percona_location}/bin/mysql_config
 
     if [ ${version} == "5.5" ] || [ ${version} == "5.6" ]; then
         ${percona_location}/scripts/mysql_install_db --basedir=${percona_location} --datadir=${percona_data_location} --user=mysql

@@ -14,7 +14,7 @@
 #upgrade php
 upgrade_php(){
 
-    if [ ! -d ${php_location} ]; then
+    if [ ! -d "${php_location}" ]; then
         log "Error" "PHP looks like not installed, please check it and try again."
         exit 1
     fi
@@ -25,20 +25,20 @@ upgrade_php(){
     [ ${ramsum} -lt 600 ] && disable_fileinfo="--disable-fileinfo" || disable_fileinfo=""
 
     local phpConfig=${php_location}/bin/php-config
-    local php_version=`get_php_version "${phpConfig}"`
-    local php_extension_dir=`get_php_extension_dir "${phpConfig}"`
-    local installed_php=`${php_location}/bin/php -r 'echo PHP_VERSION;' 2>/dev/null`
+    local php_version=$(get_php_version "${phpConfig}")
+    local php_extension_dir=$(get_php_extension_dir "${phpConfig}")
+    local installed_php=$(${php_location}/bin/php -r 'echo PHP_VERSION;' 2>/dev/null)
 
     if [ "${php_version}" == "5.6" ]; then
         latest_php="5.6.40"
     elif [ "${php_version}" == "7.0" ]; then
         latest_php="7.0.33"
     elif [ "${php_version}" == "7.1" ]; then
-        latest_php=$(curl -s http://php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.1')
+        latest_php=$(curl -s https://www.php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.1')
     elif [ "${php_version}" == "7.2" ]; then
-        latest_php=$(curl -s http://php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.2')
+        latest_php=$(curl -s https://www.php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.2')
     elif [ "${php_version}" == "7.3" ]; then
-        latest_php=$(curl -s http://php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.3')
+        latest_php=$(curl -s https://www.php.net/downloads.php | awk '/Changelog/{print $2}' | grep '7.3')
     fi
 
     echo -e "Latest version of PHP: \033[41;37m ${latest_php} \033[0m"
@@ -54,12 +54,12 @@ upgrade_php(){
     echo "---------------------------"
     echo
     echo "Press any key to start...or Press Ctrl+C to cancel"
-    char=`get_char`
+    char=$(get_char)
 
     if [[ "${upgrade_php}" = "y" || "${upgrade_php}" = "Y" ]]; then
 
         log "Info" "PHP upgrade start..."
-        if [[ -d ${php_location}.bak && -d ${php_location} ]]; then
+        if [[ -d "${php_location}.bak" && -d "${php_location}" ]]; then
             rm -rf ${php_location}.bak
         fi
         mv ${php_location} ${php_location}.bak
@@ -70,15 +70,15 @@ upgrade_php(){
         cd ${cur_dir}/software
 
         if [ ! -s php-${latest_php}.tar.gz ]; then
-            latest_php_link="http://php.net/distributions/php-${latest_php}.tar.gz"
+            latest_php_link="https://www.php.net/distributions/php-${latest_php}.tar.gz"
             backup_php_link="${download_root_url}/php-${latest_php}.tar.gz"
             untar ${latest_php_link} ${backup_php_link}
         else
-            tar -zxf php-${latest_php}.tar.gz
+            tar zxf php-${latest_php}.tar.gz
             cd php-${latest_php}/
         fi
 
-        if [ -d ${mariadb_location} ] || [ -d ${mysql_location} ] || [ -d ${percona_location} ]; then
+        if [ -d "${mariadb_location}" ] || [ -d "${mysql_location}" ] || [ -d "${percona_location}" ]; then
             if [ "${php_version}" == "5.6" ]; then
                 with_mysql="--enable-mysqlnd --with-mysql=mysqlnd --with-mysqli=mysqlnd --with-mysql-sock=/tmp/mysql.sock --with-pdo-mysql=mysqlnd"
             else
@@ -173,9 +173,7 @@ upgrade_php(){
         rm -rf php-${latest_php}/
         rm -f php-${latest_php}.tar.gz
         log "Info" "Clear up completed..."
-
-        /etc/init.d/httpd restart
-
+        /etc/init.d/httpd restart > /dev/null 2>&1
         log "Info" "PHP upgrade completed..."
     else
         echo
